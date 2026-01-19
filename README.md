@@ -13,7 +13,6 @@ This guide explains how to set up the environment, download required checkpoints
 - **Python 3.10** (the Conda env will install this)
 - **CUDA-enabled GPU** and the correct drivers for faster inference
 
----
 ### 1) Clone repository
 ```bash
 git clone https://github.com/gergelydinya/SAMAnnot.git
