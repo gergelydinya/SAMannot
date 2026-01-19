@@ -1,8 +1,12 @@
-# SAMannot — Installation Guide
+# SAMannot
+
+SAMAnnot is a versitile video annotation tool built on top of Meta's Segment Anything Model (SAM2). It helps you create high-quality segmentation masks across video frames with minimal user interaction.
+
+## Installation Guide
 
 This guide explains how to set up the environment, download required checkpoints, and launch the app
 
-## Prerequisites
+### Prerequisites
 
 - **Conda** (Anaconda or Miniconda)
 - **Git** (optional, if you clone this repo)
@@ -10,12 +14,12 @@ This guide explains how to set up the environment, download required checkpoints
 - **CUDA-enabled GPU** and the correct drivers for faster inference
 
 ---
-## 1) Clone repository
+### 1) Clone repository
 ```bash
 git clone https://github.com/gergelydinya/SAMAnnot.git
 cd SAMAnnot
 ```
-## 2) Create and activate the Conda environment
+### 2) Create and activate the Conda environment
 
 ```bash
 # From the project root
@@ -28,13 +32,13 @@ cd..
 pip install --index-url https://download.pytorch.org/whl/cu121 torch torchvision torchaudio
 ```
 
-## 3) Download checkpoints
+### 3) Download checkpoints
 ```bash
 cd checkpoints
 ./download_chckpts.sh
 ```
 
-## 4) Run the software
+### 4) Run the software
 ```bash
 conda activate 
 python main.py
