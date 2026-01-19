@@ -42,7 +42,7 @@ python main.py
 
 ## Citation
 
-If you use **SAMannot** in your research, please cite our paper:
+If you use **SAMannot**, please cite our paper:
 
 ```bibtex
 @misc{samannot,
