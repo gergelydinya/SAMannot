@@ -1,6 +1,6 @@
 # SAMannot
 
-SAMAnnot is a versitile video annotation tool built on top of Meta's Segment Anything Model (SAM2). It helps you create high-quality segmentation masks across video frames with minimal user interaction.
+SAMannot is a versitile video annotation tool built on top of Meta's Segment Anything Model (SAM2). It helps you create high-quality segmentation masks across video frames with minimal user interaction.
 
 ## Installation Guide
 
