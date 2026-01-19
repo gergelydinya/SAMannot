@@ -39,3 +39,18 @@ cd checkpoints
 conda activate 
 python main.py
 ```
+
+## Citation
+
+If you use **SAMannot** in your research, please cite our paper:
+
+```bibtex
+@misc{samannot,
+  title={SAMannot: A Memory-Efficient, Local, Open-source Framework for Interactive Video Instance Segmentation based on SAM2},
+  author={Gergely Dinya and Andr{\'a}s Gelencs{\'e}r and Krisztina Kup{\'a}n and Clemens K{\"u}pper and Krist{\'o}f Karacs and Anna Gelencs{\'e}r-Horv{\'a}th},
+  year={2026},
+  eprint={2601.11301},
+  archivePrefix={arXiv},
+  primaryClass={cs.CV},
+  url={https://arxiv.org/abs/2601.11301},
+}
