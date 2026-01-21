@@ -1,6 +1,6 @@
 # SAMannot
 
-SAMannot is a versitile video annotation tool built on top of Meta's Segment Anything Model (SAM2). It helps you create high-quality segmentation masks across video frames with minimal user interaction.
+SAMannot is a versatile video annotation tool built on top of Meta's Segment Anything Model (SAM2). It helps you create high-quality segmentation masks across video frames with minimal user interaction.
 
 ## Installation Guide
 
@@ -15,8 +15,8 @@ This guide explains how to set up the environment, download required checkpoints
 
 ### 1) Clone repository
 ```bash
-git clone https://github.com/gergelydinya/SAMAnnot.git
-cd SAMAnnot
+git clone https://github.com/gergelydinya/SAMannot.git
+cd SAMannot
 ```
 ### 2) Create and activate the Conda environment
 
@@ -27,7 +27,7 @@ conda activate samannot
 pip install -r requirements.txt
 cd sam2
 pip install -e .
-cd..
+cd ..
 pip install --index-url https://download.pytorch.org/whl/cu121 torch torchvision torchaudio
 ```
 
@@ -39,7 +39,7 @@ cd checkpoints
 
 ### 4) Run the software
 ```bash
-conda activate 
+conda activate samannot
 python main.py
 ```
 
