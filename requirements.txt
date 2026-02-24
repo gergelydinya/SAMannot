@@ -24,3 +24,4 @@ openpyxl
 psutil
 pynvml
 nvidia-ml-py3
+scikit-image
