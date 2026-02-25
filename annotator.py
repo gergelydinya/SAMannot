@@ -755,10 +755,6 @@ class Annotator:
             self.media_path = os.path.dirname(video_path)
             if self.read_frames == -1:
                 self.cap = cv2.VideoCapture(video_path)
-            ####if self.cap is not None:
-            ####    self.cap.release()
-            ####self.cap = cv2.VideoCapture(video_path)
-            ####self.read_frames = -1
             self.video_name = video_path
             self.extract_dir = self.temp_dir
             self.extracted_frames = []
@@ -781,11 +777,11 @@ class Annotator:
     def get_frame_count_dir(self,folder_path):
         temp_media_files = [os.path.join(folder_path, file) for file in os.listdir(folder_path) if file.split(".")[-1] in self.image_file_types]
         return len(temp_media_files)
+    def reset_read_frames(self):
+        self.read_frames = -1
     def extract_frames(self,start_frame,end_frame,interval,progress_var):
         frame_count = 0
         saved_count = 0
-        print(f"READ FRAMES: {self.read_frames}")
-        print(f"START FRAME: {start_frame}")
         if self.read_frames > start_frame:
             self.cap = cv2.VideoCapture(self.video_name)
             for i in range(0,start_frame):

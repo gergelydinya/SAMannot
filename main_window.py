@@ -1419,6 +1419,8 @@ class MainWindow:
         if self.file_path == "":
             return
         self.backend.reset_media()
+        if direction == -1:
+            self.backend.reset_read_frames()
         self.backend.set_current_block(self.backend.get_current_block() + direction)
         self.timeline = self.timelines[self.backend.get_current_block()]
         self.timeline[:2,:,:2] = 0

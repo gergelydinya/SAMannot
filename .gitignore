@@ -43,7 +43,6 @@ __pycache__/
 
 # Checkpoints, data and outputs
 data/*
-checkpoints/
 output/
 out/
 export/
