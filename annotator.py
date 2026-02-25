@@ -49,7 +49,9 @@ class Annotator:
         self.tracking_results = {}
         self.extra_frame_path = {}
         self.extra_frame = {}
-    
+
+        self.read_frames = -1
+        self.cap = None
     # SESSION HANDLING
     
     def reset(self):
@@ -78,6 +80,9 @@ class Annotator:
         self.extra_frame_path = {}
         self.extra_frame = {}
         self.extra_frame_masks = {}
+        if self.cap is not None:
+                self.cap.release()
+        self.read_frames = -1
         if self.sam_handler.inference_state:
             self.sam_handler.predictor.reset_state(self.sam_handler.inference_state)
     def load_from_dict(self,dict_representation):
@@ -748,10 +753,12 @@ class Annotator:
     def process_video_file(self, video_path):
         try:
             self.media_path = os.path.dirname(video_path)
-            cap = cv2.VideoCapture(video_path)
-            if not cap.isOpened():
-                return
-            cap.release()
+            if self.read_frames == -1:
+                self.cap = cv2.VideoCapture(video_path)
+            ####if self.cap is not None:
+            ####    self.cap.release()
+            ####self.cap = cv2.VideoCapture(video_path)
+            ####self.read_frames = -1
             self.video_name = video_path
             self.extract_dir = self.temp_dir
             self.extracted_frames = []
@@ -762,9 +769,12 @@ class Annotator:
     def get_frame_count(self,video_path):
         total_frames = 0
         try:
-            cap = cv2.VideoCapture(video_path)
-            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-            cap.release()
+            if self.cap is not None:
+                total_frames = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            else:
+                cap = cv2.VideoCapture(video_path)
+                total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                cap.release()
         except Exception as e:
             print(f"Error: {str(e)}")
         return total_frames
@@ -772,18 +782,29 @@ class Annotator:
         temp_media_files = [os.path.join(folder_path, file) for file in os.listdir(folder_path) if file.split(".")[-1] in self.image_file_types]
         return len(temp_media_files)
     def extract_frames(self,start_frame,end_frame,interval,progress_var):
-        cap = cv2.VideoCapture(self.video_name)
         frame_count = 0
         saved_count = 0
-        for i in range(0,start_frame):
-            ret, frame = cap.read()
-            if not ret:
-                break
+        print(f"READ FRAMES: {self.read_frames}")
+        print(f"START FRAME: {start_frame}")
+        if self.read_frames > start_frame:
+            self.cap = cv2.VideoCapture(self.video_name)
+            for i in range(0,start_frame):
+                ret, frame = self.cap.read()
+                self.read_frames += 1
+                if not ret:
+                    break
+        else:
+            for i in range(self.read_frames,start_frame):
+                ret, frame = self.cap.read()
+                self.read_frames += 1
+                if not ret:
+                    break
         self.extracted_frames = []
         shutil.rmtree(self.sam_extract_dir, ignore_errors=True)
         os.makedirs(self.sam_extract_dir, exist_ok=True)
         for i in range(start_frame,end_frame):
-            ret, frame = cap.read()
+            ret, frame = self.cap.read()
+            self.read_frames += 1
             if not ret:
                 break
             if frame_count % interval == 0:
@@ -795,7 +816,7 @@ class Annotator:
             frame_count += 1
             progress = (frame_count / (end_frame - start_frame)) * 100
             progress_var.set(progress)
-        ret, frame = cap.read()
+        ret, frame = self.cap.read()
         if ret:
             frame_path = os.path.join(self.extract_dir, f"{(i+1):06d}.jpg")
             self.extra_frame_path[self.current_block] = frame_path
@@ -804,7 +825,6 @@ class Annotator:
             self.extra_frame_path[self.current_block] = None
         self.media_files = self.extracted_frames
         self.curr_img_idx = -1
-        cap.release()
         
     # RENDER FRAME
     

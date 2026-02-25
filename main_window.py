@@ -35,6 +35,7 @@ class MainWindow:
         self.image_file_types=["jpg","JPG","jpeg","JPEG","png"]
         self.video_file_types=["mp4","avi","mov","mkv","wmv","flv"]
         self.max_frame = 0
+        self.starting_frame = 0
         self.pt_type = 1
         self.currently_selected_feature = -1
         self.label_type = 0
@@ -364,7 +365,7 @@ class MainWindow:
         nav_frame = ttk.Frame(self.image_frame)
         nav_frame.grid(sticky="ew")
         self.slider_canvas = tk.Canvas(nav_frame, highlightthickness=0, height=24)
-        self.slider_canvas.grid(row=0, column=2, sticky="ew", padx=4)
+        self.slider_canvas.grid(row=0, column=0, columnspan=7, sticky="ew")
         # Timelines
         self.timelines = []
         self.timeline = np.zeros((12,100,3), dtype=np.uint8)
@@ -376,32 +377,41 @@ class MainWindow:
             self.slider_canvas.itemconfig(slider_bg_id, image=slider_bg_img)
         self.slider_canvas.bind("<Configure>", resize_timeline_canvas)
         # Navigation controls
+        self.auto_playing = False
+        self.auto_play_direction = 0
+        self.auto_play_back_btn = ttk.Button(nav_frame, text="<*", command=lambda: self.auto_play_tick(-1), state=tk.NORMAL)
+        self.auto_play_back_btn.grid(row=1,column=0)
         self.prev_block_btn = ttk.Button(nav_frame, text="<<", command=lambda: self.switch_block(-1), state=tk.DISABLED)
-        self.prev_block_btn.grid(row=1,column=0)
+        self.prev_block_btn.grid(row=1,column=1)
         self.prev_btn = ttk.Button(nav_frame, text="<", command=lambda: self.switch_img(-1), state=tk.DISABLED)
-        self.prev_btn.grid(row=1,column=1)
+        self.prev_btn.grid(row=1,column=2)
         
         self.next_btn = ttk.Button(nav_frame, text=">", command=lambda: self.switch_img(1), state=tk.DISABLED)
-        self.next_btn.grid(row=1,column=3)
+        self.next_btn.grid(row=1,column=4)
         self.next_block_btn = ttk.Button(nav_frame, text=">>", command=lambda: self.switch_block(1), state=tk.DISABLED)
-        self.next_block_btn.grid(row=1,column=4)
+        self.next_block_btn.grid(row=1,column=5)
+        self.auto_play_back_btn = ttk.Button(nav_frame, text="*>", command=lambda: self.auto_play_tick(1), state=tk.NORMAL)
+        self.auto_play_back_btn.grid(row=1,column=6)
 
         self.navigation_slider_var = tk.IntVar()
         self.navigation_slider = ttk.Scale(nav_frame, from_=0, to=0, orient=tk.HORIZONTAL,variable=self.navigation_slider_var)
-        self.navigation_slider.grid(row=1,column=2,sticky="ew")
+        self.navigation_slider.grid(row=1,column=3,sticky="ew")
         self.navigation_slider.bind("<ButtonRelease-1>", self.navigation_slider_callback)
         
         nav_frame.grid_columnconfigure(0,weight=0)
         nav_frame.grid_columnconfigure(1,weight=0)
-        nav_frame.grid_columnconfigure(2,weight=1)
-        nav_frame.grid_columnconfigure(3,weight=0)
+        nav_frame.grid_columnconfigure(2,weight=0)
+        nav_frame.grid_columnconfigure(3,weight=1)
         nav_frame.grid_columnconfigure(4,weight=0)
+        nav_frame.grid_columnconfigure(5,weight=0)
+        nav_frame.grid_columnconfigure(6,weight=0)
+        
         # Extra windows
         self.monitor_window = SystemMonitorWindow(self.control_panel)
         self.monitor_window.hide()
         self.user_guide_window = UserGuideWindow(self.control_panel)
         self.user_guide_window.hide()
-        
+
     def switch_img_cache_fn(self):
         self.backend.set_cache_images(self.cache_check_box_var.get())
     def change_session_name(self,event):
@@ -779,6 +789,8 @@ class MainWindow:
     
     def redraw_prompts(self):
         if self.backend.get_current_label_idx() < 0:
+            return
+        if self.scale_factor is None: # TODO Fix
             return
         selected_label = self.backend.get_current_label()
         selected_label_idx = self.backend.get_current_label_idx()
@@ -1344,7 +1356,38 @@ class MainWindow:
             self.add_remove_block_button.config(text = "Remove checkpoint")
         else:
             self.add_remove_block_button.config(text = "Add checkpoint")
-            
+    def auto_play_tick(self,direction = None, first = True):
+        if first:
+            if self.auto_playing and self.auto_play_direction == direction:
+                self.auto_playing = False
+                return
+            if self.auto_playing and self.auto_play_direction != direction: # TODO: Switch direction
+                self.auto_playing = False
+                return
+            self.auto_play_direction = direction
+            self.auto_playing = True
+        else:
+            if not self.auto_playing:
+                return
+            if self.auto_playing and self.auto_play_direction != direction:
+                return
+        if self.backend.get_current_img_idx() == -1:
+            return
+        if direction == 1:
+            if self.backend.get_current_img_idx() < self.block_size - 1:
+                self.switch_img(1)
+            else:
+                self.auto_playing = False
+                self.auto_play_direction = 0
+                return
+        if direction == -1:
+            if self.backend.get_current_img_idx() > 0:
+                self.switch_img(-1)
+            else:
+                self.auto_playing = False
+                self.auto_play_direction = 0
+                return
+        self.root.after(300,self.auto_play_tick,direction,False)
     def switch_img(self,direction=1):
         if not self.backend.has_frames():
             return
