@@ -12,7 +12,7 @@ This guide explains how to set up the environment, download required checkpoints
 - **Git** (optional, if you clone this repo)
 - **Python 3.10** (the Conda env will install this)
 - **CUDA-enabled GPU** and the correct drivers for faster inference
-- **nvidia-cuda-toolki** installed (optional, recommended)
+- **nvidia-cuda-toolkit** installed (optional, recommended)
 
 ### 1) Clone repository
 ```bash
