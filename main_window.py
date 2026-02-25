@@ -286,7 +286,7 @@ class MainWindow:
         scrollbar_points.pack(side=tk.RIGHT, fill=tk.Y)
         self.points_listbox = tk.Listbox(points_list_frame,height=6,yscrollcommand=scrollbar_points.set,selectmode=tk.EXTENDED)
         self.points_listbox.pack(fill=tk.BOTH, expand=True)
-        self.points_listbox.bind("<<ListboxSelect>>", self.on_prompt_select)
+        self.points_listbox.bind("<<ListboxSelect>>", self.on_point_prompt_select)
         scrollbar_points.config(command=self.points_listbox.yview)
         
         box_list_frame = ttk.Frame(lists_container)
@@ -297,7 +297,7 @@ class MainWindow:
         scrollbar_boxes.pack(side=tk.RIGHT, fill=tk.Y)
         self.box_listbox = tk.Listbox(box_list_frame,height=6,yscrollcommand=scrollbar_boxes.set,selectmode=tk.EXTENDED)
         self.box_listbox.pack(fill=tk.BOTH, expand=True)
-        self.box_listbox.bind("<<ListboxSelect>>", self.on_prompt_select)
+        self.box_listbox.bind("<<ListboxSelect>>", self.on_box_prompt_select)
         scrollbar_boxes.config(command=self.box_listbox.yview)
         # Prompt controls
         lists_container.grid_columnconfigure(0, weight=1)
@@ -686,12 +686,16 @@ class MainWindow:
             self.feature_listbox.insert(tk.END, self.backend.get_current_label().find_most_recent_feature(i,self.backend.current_block*self.block_size + self.backend.get_current_img_idx()))
     
     # PROMPT HANDLING
-    
-    def on_prompt_select(self,event):
+    def on_point_prompt_select(self,event):
         if not self.backend.has_labels():
             return
         if self.points_listbox.curselection() and self.backend.get_view_mode() == "prompts":
-                self.update_canvas()
+            self.update_canvas()
+    def on_box_prompt_select(self,event):
+        if not self.backend.has_labels():
+            return
+        if self.box_listbox.curselection() and self.backend.get_view_mode() == "prompts":
+            self.update_canvas()
     def update_box_list(self):
         self.box_listbox.delete(0, tk.END)
         if self.backend.get_current_label_idx() < 0:
@@ -794,9 +798,13 @@ class MainWindow:
             return
         selected_label = self.backend.get_current_label()
         selected_label_idx = self.backend.get_current_label_idx()
-        selection = self.points_listbox.curselection()
-        if not selection:
-            selection = (-1,)
+        point_selection = self.points_listbox.curselection()
+        if not point_selection:
+            point_selection = (-1,)
+        box_selection = self.box_listbox.curselection()
+        print(box_selection)
+        if not box_selection:
+            box_selection = (-1,)
         for label_cnt, current_label in enumerate(self.backend.get_labels()):
             self.label_markers[label_cnt] = []
             for pt in current_label.pts[self.backend.get_current_block()]:
@@ -834,9 +842,11 @@ class MainWindow:
                                 outline=current_label.col, width=5, tags='marker'
                             )  
             if current_label.name == selected_label.name:
-                if selection[0] != -1:
-                    for pt_idx in selection:
+                if point_selection[0] != -1:
+                    for pt_idx in point_selection:
                         pt = current_label.pts[self.backend.get_current_block()][pt_idx]
+                        if pt.idx != self.backend.get_current_img_idx():
+                            continue
                         canvas_x = int(pt.x * self.scale_factor) + self.current_img_x + 1
                         canvas_y = int(pt.y * self.scale_factor) + self.current_img_y + 1
                         marker_radius = 5
@@ -847,8 +857,11 @@ class MainWindow:
                             outline="yellow", width=5, tags='marker'
                         )
                         self.label_markers[selected_label_idx].append(marker_id)
-                    for box_idx in selection:
+                if box_selection[0] != -1:
+                    for box_idx in box_selection:
                         box = current_label.boxes[self.backend.get_current_block()][box_idx]
+                        if box.idx != self.backend.get_current_img_idx():
+                            continue
                         f_canvas_x = int(box.fx * self.scale_factor) + self.current_img_x
                         f_canvas_y = int(box.fy * self.scale_factor) + self.current_img_y
                         canvas_x = int(box.x * self.scale_factor) + self.current_img_x
