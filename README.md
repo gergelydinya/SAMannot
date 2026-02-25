@@ -43,6 +43,13 @@ conda activate samannot
 python main.py
 ```
 
+## Best practices and practical tips
+The typical workflow the software is designed for is that the user proceeds block by block and moves forward without going back.
+It is also possible to load an earlier block, but in that case you should expect some time overhead, as the software needs to load the frames starting from the beginning of the video.
+
+Choose your block size based on your computer’s resources and the complexity of the data.
+As a starting point, for an average video, we recommend a block size of 100--150 frames.
+
 ## Citation
 
 If you use **SAMannot**, please cite our paper:
