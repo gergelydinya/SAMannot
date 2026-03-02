@@ -29,6 +29,7 @@ pip install -r requirements.txt
 cd sam2
 pip install -e .
 cd ..
+# Match to your CUDA version 12.1 ~ cu121
 pip install --index-url https://download.pytorch.org/whl/cu121 torch torchvision torchaudio
 ```
 
