@@ -42,7 +42,6 @@ __pycache__/
 *.wmv
 
 # Checkpoints, data and outputs
-data/*
 output/
 out/
 export/
