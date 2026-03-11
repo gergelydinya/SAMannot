@@ -36,13 +36,19 @@ pip install --index-url https://download.pytorch.org/whl/cu128 torch torchvision
 ### 3) Download checkpoints
 ```bash
 cd checkpoints
-./download_chckpts.sh
+bash download_chckpts.sh
 ```
 
 ### 4) Run the software
 ```bash
 conda activate samannot
 python main.py
+```
+
+## Evaluation
+```bash
+cd eval
+python eval_fast.py --gt <ground truth folder> --pred <prediction folder>
 ```
 
 ## Best practices and practical tips
