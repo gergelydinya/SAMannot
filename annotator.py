@@ -741,13 +741,22 @@ class Annotator:
                 return float('inf') 
             self.media_files.sort(key=numeric_key)
             end_frame = np.amin([end_frame,len(self.media_files)])
-            self.media_files = self.media_files[start_frame:end_frame]
+            print(f"{len(self.media_files)} vs {end_frame}")
+            if len(self.media_files) >= end_frame:
+                file_name = self.media_files[end_frame]
+                self.extra_frame_path[self.current_block] = os.path.join(self.sam_extract_dir,os.path.basename(file_name))
+                self.media_files = self.media_files[start_frame:end_frame+1]
+            else:
+                self.extra_frame_path[self.current_block] = None
+                self.media_files = self.media_files[start_frame:end_frame]
+            
             shutil.rmtree(self.sam_extract_dir, ignore_errors=True)
             os.makedirs(self.sam_extract_dir, exist_ok=True)
             for file_name in self.media_files:
                 shutil.copy(file_name,os.path.join(self.extract_dir,os.path.basename(file_name)))
                 shutil.copy(file_name,os.path.join(self.sam_extract_dir,os.path.basename(file_name)))
             self.curr_img_idx = -1
+
         except Exception as e:
             print(f"Error loading folders: {str(e)}")
     def process_video_file(self, video_path):
