@@ -802,7 +802,6 @@ class MainWindow:
         if not point_selection:
             point_selection = (-1,)
         box_selection = self.box_listbox.curselection()
-        print(box_selection)
         if not box_selection:
             box_selection = (-1,)
         for label_cnt, current_label in enumerate(self.backend.get_labels()):
@@ -1095,7 +1094,6 @@ class MainWindow:
     
     def add_multiple_points(self, points, label_name, img_idx,pt_type):
         for (pt_y, pt_x) in points:
-            print(f"{pt_y} # {pt_x}")
             canvas_x = int(pt_x * self.scale_factor + self.current_img_x)
             canvas_y = int(pt_y * self.scale_factor + self.current_img_y)
             orig_x = pt_x
@@ -1432,6 +1430,7 @@ class MainWindow:
         self.prev_block_btn.config(state=tk.DISABLED)
         if self.file_path == "":
             return
+        self.auto_playing = False
         self.backend.reset_media()
         if direction == -1:
             self.backend.reset_read_frames()
@@ -1454,12 +1453,9 @@ class MainWindow:
             self.max_frame = self.backend.get_frame_count_dir(os.path.dirname(self.file_path))
         else:
             self.max_frame = self.backend.get_frame_count(self.file_path)
-        print(f"SWITCHING BLOCK: {direction} // {((self.backend.get_current_block()-1) in self.backend.extra_frame_masks)}")
         if direction == 1 and (self.backend.get_current_block()-1) in self.backend.extra_frame_masks:
             if self.auto_prompt_check_box_var.get():
-                print(f"AUTO PROMPT CHECKED")
                 for l, m in self.backend.extra_frame_masks[self.backend.get_current_block()-1].items():
-                    print(f"{l}")
                     self.add_multiple_points(self.backend.generate_point_prompts(m),l,0,1)
         if self.backend.get_current_block() <= 0:
             self.prev_block_btn.config(state=tk.DISABLED)

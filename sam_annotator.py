@@ -205,15 +205,10 @@ class SAM_Annotator:
                     if k > start_frame_idx and k < max_efi:
                         max_efi = k
                         prop_extra_frame = False
-                print(f"PROP EXTRA FRAME: {prop_extra_frame}")
                 end_frame_idx = np.amin([end_frame_idx,max_efi])
-                print(f"EF: {end_frame_idx}")
                 if prop_extra_frame:
                     end_frame_idx += 1
-                print(f"EF: {end_frame_idx}")
-                print(f"SF: {start_frame_idx}")
                 total_prop_frames = end_frame_idx - start_frame_idx - 1
-                print(f"TOTAL PROP FRAMES: {total_prop_frames}")
             else:
                 if end_frame_idx is None:
                     end_frame_idx = 0
