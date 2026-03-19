@@ -1,7 +1,7 @@
 <a href="https://arxiv.org/abs/2601.11301"><img src="https://img.shields.io/badge/arXiv-2503.11651-b31b1b" alt="arXiv"></a>
 <a href="https://samannot.github.io/"> <img src="https://img.shields.io/badge/Project_Page-green" alt="Project Page"></a>
 <a href="https://www.youtube.com/watch?v=j5TVcVeuVZM"> <img src="https://img.shields.io/badge/demo_video-youtube-red" alt="Demo video"></a>
-<a href="https://www.youtube.com/watch?v=X8AkZTCYWQo"> <img src="https://img.shields.io/badge/demo_video-youtube-red" alt="Installation video"></a>
+<a href="https://www.youtube.com/watch?v=X8AkZTCYWQo"> <img src="https://img.shields.io/badge/demo_video-youtube-red" alt="Install video"></a>
 
 # SAMannot
 
