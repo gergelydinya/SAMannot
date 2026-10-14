@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "samannot"
+version = "0.1.0"
+description = "A memory-efficient, local interactive video instance segmentation annotation tool based on SAM 2"
+readme = "README.md"
+authors = [
+    { name = "Gergely Dinya" }
+]
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Image Recognition",
+]
+
+dependencies = [
+    "numpy>=1.22.0",
+    "pillow>=9.0.0",
+    "opencv-python>=4.7.0",
+    "matplotlib>=3.5.0",
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "timm>=0.6.12",
+    "omegaconf>=2.3.0",
+    "supervision>=0.13.0",
+    "pycocotools>=2.0.6",
+    "ttkthemes",
+    "hydra-core",
+    "openpyxl",
+    "psutil",
+    "pynvml",
+    "scikit-image",
+    "sam2",
+]
+
+[project.scripts]
+samannot = "samannot.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["samannot*"]
+
+[tool.setuptools.package-data]
+samannot = [
+    "keycodes_linux.json",
+    "keycodes_windows.json",
+    "sam2_configs/*.yaml",
+]
+"samannot.sam2_configs" = [
+    "*.yaml",
+]

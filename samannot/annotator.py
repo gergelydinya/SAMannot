@@ -3,8 +3,8 @@ from PIL import Image
 import cv2  
 import time
 import numpy as np
-from label import Label_Handler
-from sam_annotator import SAM_Annotator
+from .label import Label, Label_Handler
+from .sam_annotator import SAM_Annotator
 from openpyxl import Workbook
 import shutil
 import re
@@ -258,7 +258,19 @@ class Annotator:
     # MODEL HANDLING
     
     def init_sam2(self):
-        self.sam_handler = SAM_Annotator(model_type="vit_h",model_cfg_path="sam2.1_hiera_l.yaml",ckpt_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), self.base_checkpoint_path+"sam2.1_hiera_large.pt"))
+        pkg_dir = os.path.dirname(os.path.abspath(__file__))
+        candidates = [
+            os.path.join(os.getcwd(), "checkpoints", "sam2.1_hiera_large.pt"),
+            os.path.join(os.path.dirname(pkg_dir), "checkpoints", "sam2.1_hiera_large.pt"),
+            os.path.join(os.path.expanduser("~"), ".cache", "samannot", "checkpoints", "sam2.1_hiera_large.pt"),
+            os.path.join(pkg_dir, "checkpoints", "sam2.1_hiera_large.pt"),
+        ]
+        ckpt_path = candidates[0]
+        for c in candidates:
+            if os.path.exists(c):
+                ckpt_path = c
+                break
+        self.sam_handler = SAM_Annotator(model_type="vit_h", model_cfg_path="sam2.1_hiera_l.yaml", ckpt_path=ckpt_path)
     def can_initialize_model(self):
         return os.path.exists(self.sam_handler.ckpt_path)
     def get_model_type(self):

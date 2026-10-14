@@ -1,16 +1,5 @@
-import threading
 import tkinter as tk
 from tkinter import ttk
-import os
-from PIL import Image, ImageTk
-import time
-import numpy as np
-from annotator import Annotator
-import pickle
-from system_monitor import SystemMonitor
-from user_guide import UserGuideWindow
-import pynvml
-import json
 class EditableListbox(tk.Listbox):
     def __init__(self, master, edit_fn, check_edit, **kwargs):
         super().__init__(master, **kwargs)
