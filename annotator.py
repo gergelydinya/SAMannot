@@ -741,8 +741,7 @@ class Annotator:
                 return float('inf') 
             self.media_files.sort(key=numeric_key)
             end_frame = np.amin([end_frame,len(self.media_files)])
-            print(f"{len(self.media_files)} vs {end_frame}")
-            if len(self.media_files) >= end_frame:
+            if len(self.media_files) > end_frame:
                 file_name = self.media_files[end_frame]
                 self.extra_frame_path[self.current_block] = os.path.join(self.sam_extract_dir,os.path.basename(file_name))
                 self.media_files = self.media_files[start_frame:end_frame+1]
