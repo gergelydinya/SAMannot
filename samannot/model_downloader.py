@@ -261,6 +261,7 @@ class ModelDownloaderWindow(tk.Toplevel):
             if not messagebox.askyesno(
                 "Overwrite Existing Model",
                 f"{meta['filename']} already exists in the destination folder.\nDo you want to re-download and overwrite it?",
+                parent=self,
             ):
                 return
 
@@ -312,11 +313,15 @@ class ModelDownloaderWindow(tk.Toplevel):
 
         messagebox.showinfo(
             "Download Complete",
-            f"Model successfully saved to:\n{dest_path}\n\nSAMannot will now initialize the model.",
+            f"The download is complete!\n\nModel weights saved to:\n{dest_path}",
+            parent=self,
         )
 
-        if self.on_complete_callback:
-            self.on_complete_callback(str(dest_path))
+        callback = self.on_complete_callback
+        self.destroy()
+
+        if callback:
+            callback(str(dest_path))
 
     def _on_download_cancelled(self):
         self.is_downloading = False
@@ -332,7 +337,7 @@ class ModelDownloaderWindow(tk.Toplevel):
         self.download_btn.config(state=tk.NORMAL)
         self.cancel_btn.config(state=tk.DISABLED)
         self.status_var.set("Download failed.")
-        messagebox.showerror("Download Error", f"Failed to download model weights:\n{err_msg}")
+        messagebox.showerror("Download Error", f"Failed to download model weights:\n{err_msg}", parent=self)
         self.refresh_model_status()
 
     def cancel_download(self):
@@ -342,7 +347,7 @@ class ModelDownloaderWindow(tk.Toplevel):
 
     def on_close(self):
         if self.is_downloading:
-            if messagebox.askyesno("Cancel Download", "A download is currently in progress. Cancel and exit?"):
+            if messagebox.askyesno("Cancel Download", "A download is currently in progress. Cancel and exit?", parent=self):
                 self.cancel_event.set()
                 self.destroy()
         else:
@@ -361,8 +366,12 @@ def main():
     """Standalone CLI / script entry point."""
     root = tk.Tk()
     root.withdraw()
-    win = ModelDownloaderWindow(on_complete_callback=lambda p: print(f"Downloaded to {p}"))
+    win = ModelDownloaderWindow(parent=root, on_complete_callback=lambda p: print(f"Downloaded to {p}"))
     win.wait_window()
+    try:
+        root.destroy()
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":

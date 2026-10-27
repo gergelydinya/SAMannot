@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "samannot"
-version = "0.1.0"
+version = "0.2.0"
 description = "A memory-efficient, local interactive video instance segmentation annotation tool based on SAM 2"
 readme = "README.md"
 authors = [
