@@ -22,6 +22,5 @@ ttkthemes
 hydra-core
 openpyxl
 psutil
-pynvml
-nvidia-ml-py3
+nvidia-ml-py
 scikit-image

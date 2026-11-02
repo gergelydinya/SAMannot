@@ -34,7 +34,7 @@ dependencies = [
     "hydra-core",
     "openpyxl",
     "psutil",
-    "pynvml",
+    "nvidia-ml-py",
     "scikit-image",
     "sam2",
 ]
