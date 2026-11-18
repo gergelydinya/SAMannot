@@ -16,7 +16,10 @@ class EditableListbox(tk.Listbox):
         if not index:
             return
         self.edit_index = index[0]
-        _, y, _, h = self.bbox(self.edit_index)
+        bbox = self.bbox(self.edit_index)
+        if not bbox:
+            return
+        _, y, _, h = bbox
         full_width = self.winfo_width()
         if self.entry:
             self.entry.destroy()

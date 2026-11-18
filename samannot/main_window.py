@@ -1,6 +1,6 @@
 import threading
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox, filedialog
 import os
 from PIL import Image, ImageTk
 import time
@@ -12,7 +12,6 @@ from .user_guide import *
 import pynvml
 import json
 from pathlib import Path
-from tkinter import filedialog
 from .visual_widget_utils import *
 from .functional_widget_utils import *
 
@@ -29,7 +28,8 @@ class MainWindow:
         self.root.geometry(f"{self.window_width}x{self.window_height}+1+1")
         self.root.update_idletasks()
         self.root.minsize(800, 540)
-        self.control_width = 300
+        self.control_width = 320
+        self.unsaved_changes = False
         self.current_img_width = 0
         self.current_img_height = 0
         self.keycodes = {}
@@ -40,6 +40,7 @@ class MainWindow:
         self.video_file_types=["mp4","avi","mov","mkv","wmv","flv"]
         self.max_frame = 0
         self.starting_frame = 0
+        self.block_size = 100
         self.pt_type = 1
         self.currently_selected_feature = -1
         self.label_type = 0
@@ -55,6 +56,7 @@ class MainWindow:
         self.slider_var = tk.IntVar()
         
         self.backend = Annotator()
+        self.backend.reset()
         self.load_keycodes()
         self.create_gui()
         os.makedirs("data",exist_ok=True)
@@ -162,10 +164,60 @@ class MainWindow:
         style.configure("Status.TFrame", background="#e6f2ff")
         style.configure("Status.TLabel", background="#e6f2ff")
         self.control_panel = ttk.Frame(self.root, width=self.control_width)
-        self.control_panel.grid(row=0, column=0, sticky='ns', padx=5, pady=5)
+        self.control_panel.grid(row=0, column=0, sticky='nsew', padx=5, pady=5)
         self.control_panel.grid_propagate(False)
+        self.control_panel.pack_propagate(False)
+
+        # Status frame pinned at bottom
+        self.status_frame = ttk.Frame(self.control_panel, style="Status.TFrame", padding=(10, 5))
+        self.status_frame.pack(fill=tk.X, side=tk.BOTTOM, pady=(0, 5))
+        self.status_label = ttk.Label(self.status_frame,text="",style="Status.TLabel",wraplength=self.control_width - 30,anchor="center",justify="center")
+        self.status_label.pack(fill=tk.X)
+        self.progress_var = tk.DoubleVar(value=0)
+        self.progress_bar = ttk.Progressbar(self.status_frame, variable=self.progress_var, length=self.control_width-30)
+        self.progress_bar.pack(fill=tk.X, pady=(5, 0))
+
+        # Scrollable container for control frames
+        panel_container = ttk.Frame(self.control_panel)
+        panel_container.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+        self.panel_scrollbar = ttk.Scrollbar(panel_container, orient=tk.VERTICAL)
+        self.panel_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.panel_canvas = tk.Canvas(panel_container, bg=self.root.cget("bg"), highlightthickness=0, bd=0)
+        self.panel_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.panel_canvas.configure(yscrollcommand=self.panel_scrollbar.set)
+        self.panel_scrollbar.configure(command=self.panel_canvas.yview)
+
+        self.scrollable_control_panel = ttk.Frame(self.panel_canvas)
+        self.canvas_window_id = self.panel_canvas.create_window((0, 0), window=self.scrollable_control_panel, anchor="nw")
+
+        def _on_canvas_configure(event):
+            self.panel_canvas.itemconfig(self.canvas_window_id, width=event.width)
+
+        def _on_frame_configure(event):
+            self.panel_canvas.configure(scrollregion=self.panel_canvas.bbox("all"))
+
+        self.panel_canvas.bind('<Configure>', _on_canvas_configure)
+        self.scrollable_control_panel.bind('<Configure>', _on_frame_configure)
+
+        def _on_panel_mousewheel(event):
+            bbox = self.panel_canvas.bbox("all")
+            if bbox and (bbox[3] - bbox[1]) > self.panel_canvas.winfo_height():
+                if getattr(event, "num", None) == 4:
+                    self.panel_canvas.yview_scroll(-1, "units")
+                elif getattr(event, "num", None) == 5:
+                    self.panel_canvas.yview_scroll(1, "units")
+                elif getattr(event, "delta", None):
+                    self.panel_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        self.panel_canvas.bind("<MouseWheel>", _on_panel_mousewheel)
+        self.panel_canvas.bind("<Button-4>", _on_panel_mousewheel)
+        self.panel_canvas.bind("<Button-5>", _on_panel_mousewheel)
+        self.status_frame.bind("<MouseWheel>", _on_panel_mousewheel)
+
         # Session
-        session_frame = ttk.LabelFrame(self.control_panel, text="Session")
+        session_frame = ttk.LabelFrame(self.scrollable_control_panel, text="Session")
         session_frame.pack(fill=tk.X, padx=5, pady=5)
         # Session name
         session_name_frame = ttk.Frame(session_frame)
@@ -223,12 +275,12 @@ class MainWindow:
         self.open_user_guide_btn.grid(row=0, column=6, pady=2, sticky="w")
         ToolTip(self.open_user_guide_btn, "User guide")
         # Media handling
-        media_frame = ttk.LabelFrame(self.control_panel, text="Media")
+        media_frame = ttk.LabelFrame(self.scrollable_control_panel, text="Media")
         media_frame.pack(fill=tk.X, padx=5, pady=5)
         self.load_media_btn = ttk.Button(media_frame, text="Load Media", command=self.load_main_folder_unified, width=36)
         self.load_media_btn.pack(fill=tk.X)
         # Labels
-        labels_frame = ttk.LabelFrame(self.control_panel, text="Labels")
+        labels_frame = ttk.LabelFrame(self.scrollable_control_panel, text="Labels")
         labels_frame.pack(fill=tk.X, padx=5, pady=5)
         new_label_frame = ttk.Frame(labels_frame)
         new_label_frame.pack(fill=tk.X, pady=5)
@@ -321,7 +373,7 @@ class MainWindow:
         self.delete_box_btn.grid(row=0, column=2, padx=2, pady=2, sticky="ew")
         points_btn_frame.grid_columnconfigure((0, 1, 2), weight=1, uniform="delete")
         # Propagation controls
-        video_frame = ttk.LabelFrame(self.control_panel, text="Propagate", labelanchor="n")
+        video_frame = ttk.LabelFrame(self.scrollable_control_panel, text="Propagate", labelanchor="n")
         video_frame.pack(fill=tk.X, padx=5, pady=5)
         propagate_frame = ttk.Frame(video_frame)
         propagate_frame.pack(fill=tk.X, pady=5)
@@ -342,7 +394,7 @@ class MainWindow:
         self.add_remove_block_button.grid(row=1, column=0, columnspan=4, sticky="ew", pady=(5,5))
         propagate_frame.grid_columnconfigure((0,1,2,3), weight=1)
         # View mode
-        self.view_mode_frame = ttk.Frame(self.control_panel)
+        self.view_mode_frame = ttk.Frame(self.scrollable_control_panel)
         self.view_mode_frame.pack(fill=tk.BOTH, pady=5)
         self.view_mode_var = tk.IntVar(value=1)
         ttk.Radiobutton(self.view_mode_frame, text="Original", variable=self.view_mode_var, value=0,command=lambda: self.change_view_mode(0)).grid(row=0, column=0, padx=4, pady=2, sticky="ew")
@@ -351,14 +403,16 @@ class MainWindow:
         ttk.Radiobutton(self.view_mode_frame, text="Masks", variable=self.view_mode_var, value=3,command=lambda: self.change_view_mode(3)).grid(row=0, column=3, padx=4, pady=2, sticky="ew")
         for col in range(4):
             self.view_mode_frame.grid_columnconfigure(col, weight=1)
-        # Status frame
-        self.status_frame = ttk.Frame(self.control_panel, style="Status.TFrame", padding=(10, 5))
-        self.status_frame.pack(fill=tk.X, side=tk.BOTTOM, pady=(0, 5))
-        self.status_label = ttk.Label(self.status_frame,text="",style="Status.TLabel",wraplength=self.control_width - 30,anchor="center",justify="center")
-        self.status_label.pack(fill=tk.X)
-        self.progress_var = tk.DoubleVar(value=0)
-        self.progress_bar = ttk.Progressbar(self.status_frame, variable=self.progress_var, length=self.control_width-30)
-        self.progress_bar.pack(fill=tk.X, pady=(5, 0))
+
+        def _bind_panel_mousewheel(widget):
+            if not isinstance(widget, (tk.Listbox, ttk.Treeview, tk.Text)):
+                widget.bind("<MouseWheel>", _on_panel_mousewheel, add="+")
+                widget.bind("<Button-4>", _on_panel_mousewheel, add="+")
+                widget.bind("<Button-5>", _on_panel_mousewheel, add="+")
+            for child in widget.winfo_children():
+                _bind_panel_mousewheel(child)
+
+        _bind_panel_mousewheel(self.scrollable_control_panel)
         # Canvas
         self.image_frame = ttk.Frame(self.root, style="Black.TFrame")
         self.image_frame.grid(row=0, column=1, sticky='nsew')
@@ -446,6 +500,7 @@ class MainWindow:
         self.label_listbox.see(tk.END)
         self.label_markers.append([])
         self.box_label_markers.append([])
+        self.unsaved_changes = True
         self.update_status(f"Added label: {label_name}")
         self.new_label_entry.delete(0, tk.END)
         self.enable_label_controls()
@@ -506,6 +561,7 @@ class MainWindow:
         
     def label_edit(self, label_list):
         self.backend.set_label_name(label_list.edit_index, label_list.entry.get())
+        self.unsaved_changes = True
         label_idx = label_list.edit_index
         new_label_idx = (label_idx) % len(self.backend.get_labels())
         self.label_listbox.selection_clear(0, tk.END)
@@ -662,20 +718,31 @@ class MainWindow:
     def feature_edit(self, feature_list):
         label = self.backend.get_current_label()
         label.features[feature_list.edit_index].append((feature_list.entry.get(), self.backend.curr_img_idx + self.backend.get_current_block() * self.block_size))
+        self.unsaved_changes = True
     def add_feature(self):
         feature_name = self.new_feature_entry.get().strip()
         if not feature_name:
-            self.update_status("No feature value specified!")
+            self.update_status("No feature value specified! Please enter a feature name.")
+            self.new_feature_entry.focus_set()
             return
         if self.backend.get_current_label_idx() < 0:
-            self.update_status("Please select a label!")
+            self.update_status("Please select a label first!")
+            messagebox.showwarning("No Label Selected", "Please select a label first!", parent=self.root)
             return
+        
         self.backend.add_feature_to_current_label(feature_name)
+        self.unsaved_changes = True
         self.feature_listbox.insert(tk.END, feature_name)
         self.feature_listbox.itemconfig(tk.END, {'bg': 'white'}) 
+        
+        # Update selection index so 'Delete Feature' works immediately
+        new_idx = self.feature_listbox.size() - 1
         self.feature_listbox.selection_clear(0, tk.END)
-        self.feature_listbox.selection_set(tk.END)
-        self.feature_listbox.see(tk.END)
+        self.feature_listbox.selection_set(new_idx)
+        self.feature_listbox.see(new_idx)
+        self.currently_selected_feature = new_idx
+        self.delete_feature_btn.config(state=tk.NORMAL)
+        
         self.update_status(f"Added feature: {feature_name}")
         self.new_feature_entry.delete(0, tk.END)
     def on_feature_select(self, event):
@@ -685,6 +752,7 @@ class MainWindow:
         if self.currently_selected_feature < 0 or self.currently_selected_feature >= len(self.backend.get_current_label().features):
             return
         self.backend.delete_feature_from_current_label(self.currently_selected_feature)
+        self.unsaved_changes = True
         self.update_features_list()
     def update_features_list(self):
         self.feature_listbox.delete(0, tk.END)
@@ -770,6 +838,7 @@ class MainWindow:
         self.update_pts_list()
         self.update_box_list()
         self.update_status(f"Deleted points {str(selection)}")
+        self.unsaved_changes = True
         self.update_canvas()
     def delete_selected_box(self,flag=0):
         if self.backend.get_current_label_idx() < 0 or self.box_listbox.size() <= 0:
@@ -795,6 +864,7 @@ class MainWindow:
             self.disable_tracking_controls()
         self.update_box_list()
         self.update_status(f"Deleted boxes {str(selection)}")
+        self.unsaved_changes = True
         self.update_canvas()
     
     # VISUAL UPDATES    
@@ -1003,6 +1073,7 @@ class MainWindow:
         )
         self.backend.add_point_prompt_to_current_label(orig_x, orig_y, self.pt_type,self.backend.get_current_img_idx())
         self.label_markers[self.backend.get_current_label_idx()].append(marker_id)
+        self.unsaved_changes = True
         self.update_pts_list()
         self.update_box_list()
         self.refresh_prompt_timeline()
@@ -1022,6 +1093,7 @@ class MainWindow:
             f_orig_y, orig_y = orig_y, f_orig_y
         self.backend.add_box_prompt_to_current_label(f_orig_x, f_orig_y, orig_x, orig_y, self.pt_type,self.backend.get_current_img_idx())
         self.box_label_markers[self.backend.get_current_label_idx()].append(marker_id)
+        self.unsaved_changes = True
         self.update_pts_list()
         self.update_box_list()
         self.refresh_prompt_timeline()
@@ -1057,6 +1129,7 @@ class MainWindow:
                     current_label = self.backend.get_current_label()
                     if not current_label:
                         self.update_status("Please create and select a label first!")
+                        messagebox.showwarning("No Label Selected", "Please create and select a label first!", parent=self.root)
                         return
                     self.place_point(current_label,canvas_x, canvas_y, orig_x, orig_y)
             else:
@@ -1070,6 +1143,7 @@ class MainWindow:
                         current_label = self.backend.get_current_label()
                         if not current_label:
                             self.update_status("Please create and select a label first!")
+                            messagebox.showwarning("No Label Selected", "Please create and select a label first!", parent=self.root)
                             return
                         self.placing_prompt = True
                         self.first_point = (canvas_x,canvas_y)
@@ -1090,6 +1164,7 @@ class MainWindow:
                         current_label = self.backend.get_current_label()
                         if not current_label:
                             self.update_status("Please create and select a label first!")
+                            messagebox.showwarning("No Label Selected", "Please create and select a label first!", parent=self.root)
                             self.placing_prompt = False
                             self.first_point = None
                             return
@@ -1123,6 +1198,7 @@ class MainWindow:
                 )
             self.backend.add_point_prompt_to_label(orig_x, orig_y, pt_type, img_idx, self.backend.get_label_idx(label_name))
             self.label_markers[self.backend.get_label_idx(label_name)].append(marker_id)
+            self.unsaved_changes = True
             self.update_pts_list()
             self.update_box_list()
             self.timeline[6:8,img_idx ,2] = 255
@@ -1138,6 +1214,7 @@ class MainWindow:
         else:
             self.backend.add_propagation_block(img_idx)
             self.timeline[10:,img_idx,0] = 255
+        self.unsaved_changes = True
         self.update_timeline_canvas()
         self.refresh_propagation_block_button()
     def run_tracking_all(self):
@@ -1189,6 +1266,7 @@ class MainWindow:
                 success, prop_frames = self.backend.propagate(flag,(lambda msg, prog: self.root.after(0, lambda: update_progress(msg, prog))))
                 if not success:
                     return
+                self.unsaved_changes = True
                 self.root.after(0, lambda: self.update_status("Masks propagated successfully."))
                 update_progress("Propagation complete. Applying masks to all images...", 0)
                 self.backend.apply_masks(update_progress)
@@ -1219,7 +1297,11 @@ class MainWindow:
         if self.backend.get_number_of_images() == 0:
             self.update_status("No frames are loaded.")
             return
-        if self.backend.get_current_label_idx() < 0 or not self.backend.has_frames():
+        if self.backend.get_current_label_idx() < 0:
+            self.update_status("Please select a label first!")
+            messagebox.showwarning("No Label Selected", "Please select a label first!", parent=self.root)
+            return
+        if not self.backend.has_frames():
             return
         self.update_status(f"Generating mask")
         threading.Thread(target=self._generate_mask_thread).start()
@@ -1229,6 +1311,7 @@ class MainWindow:
         success, prop_frames = self.backend.generate_mask()
         if not success:
             return
+        self.unsaved_changes = True
         self.root.after(0, lambda: self.export_tracking_btn.config(state=tk.NORMAL))
         self.backend.apply_masks(update_progress)
         self.root.after(0, lambda: self.update_canvas())
@@ -1310,6 +1393,7 @@ class MainWindow:
         else:
             self.root.after(0, lambda: self.update_loading(message, is_final))
     def update_status(self, message):
+        print(f"[SAMannot] {message}", flush=True)
         if threading.current_thread() is threading.main_thread():
             self.status_label.config(text=message)
             self.root.update_idletasks()
@@ -1564,6 +1648,7 @@ class MainWindow:
                 self.next_block_btn.config(state=tk.DISABLED)
             else:
                 self.next_block_btn.config(state=tk.NORMAL)
+            self.unsaved_changes = False
     
     def save_session(self):
         frontend_representation = {
@@ -1596,10 +1681,14 @@ class MainWindow:
         with open(path, "wb") as f:
             pickle.dump(self.backend.compress_to_dict(), f, protocol=pickle.HIGHEST_PROTOCOL)
             pickle.dump(frontend_representation, f, protocol=pickle.HIGHEST_PROTOCOL)
+        self.unsaved_changes = False
+        self.update_status(f"Session saved to {path}")
 
     def reset_session(self):
         del self.backend
         self.backend = Annotator()
+        self.backend.reset()
+        self.unsaved_changes = False
         self.pt_type = 1
         self.currently_selected_feature = -1
         self.label_markers = []
@@ -1654,7 +1743,30 @@ class MainWindow:
     def on_window_rsz(self, event):
         if event.widget == self.root:
             self.update_canvas()
+    def has_unsaved_annotations(self):
+        if not getattr(self, "unsaved_changes", False):
+            return False
+        if hasattr(self, "backend") and hasattr(self.backend, "sam_handler"):
+            labels = getattr(self.backend.sam_handler, "labels", [])
+            has_pts = any(len(pts) > 0 for l in labels for pts in l.pts.values())
+            has_boxes = any(len(boxes) > 0 for l in labels for boxes in l.boxes.values())
+            has_masks = bool(getattr(self.backend, "masks", None))
+            has_features = any(any(len(f) > 0 for f in l.features) for l in labels)
+            if labels or has_pts or has_boxes or has_masks or has_features:
+                return True
+            return False
+        return self.unsaved_changes
+
     def on_close(self):
+        if self.has_unsaved_annotations():
+            answer = messagebox.askyesno(
+                "Unsaved Annotations",
+                "You have unsaved annotations. Are you sure you want to exit without saving?",
+                icon="warning",
+                parent=self.root
+            )
+            if not answer:
+                return
         self.root.destroy()
     def open_system_monitor(self):
         self.monitor_window.show()

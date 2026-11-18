@@ -21,16 +21,20 @@ class Label:
         self.boxes = {}
         self.features = []
         self.prop_frames = {}
-    def find_most_recent_feature(self,idx, img_idx):
+    def find_most_recent_feature(self, idx, img_idx):
+        if not self.features[idx]:
+            return ""
         most_recent_idx = -1
         feature_id = -1
         for i, modification in enumerate(self.features[idx]):
             if modification[1] <= img_idx:
-                most_recent_idx = np.amax([most_recent_idx,modification[1]])
-                feature_id = i
-        if most_recent_idx != -1:
+                if modification[1] > most_recent_idx:
+                    most_recent_idx = modification[1]
+                    feature_id = i
+        if feature_id != -1:
             return self.features[idx][feature_id][0]
-        return " "
+        # Fallback to the earliest defined value instead of returning empty space
+        return self.features[idx][0][0]
     def modify_feature(self, feature_idx, feature_value, frame_idx):
         self.features[feature_idx].append((feature_value, frame_idx))
     def add_pt(self, x,y, pt_type,idx,block_idx):

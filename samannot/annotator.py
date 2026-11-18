@@ -21,6 +21,8 @@ class Annotator:
         self.media_files = []
         self.curr_img_idx = -1
         self.current_block = 0
+        self.block_size = 100
+        self.num_blocks = 1
         self.idx_to_path = {}
         self.temp_dir = None
         self.video_name = ""
@@ -32,6 +34,7 @@ class Annotator:
         self.overlay_imgs = {}
         self.combined_masks = {}
         self.cache_images = True
+        self.alpha = 0.6
         self.current_img_width = 0
         self.current_img_height = 0
 
@@ -49,6 +52,9 @@ class Annotator:
         self.tracking_results = {}
         self.extra_frame_path = {}
         self.extra_frame = {}
+        self.extra_frame_masks = {}
+        self.original_img = None
+        self.curr_img_shape = None
 
         self.read_frames = -1
         self.cap = None
@@ -62,6 +68,7 @@ class Annotator:
         self.original_img = None
         self.overlay_imgs = {}
         self.combined_masks = {}
+        self.alpha = 0.6
         self.masks = {}
         self.tracking_results = {}
         self.label_handler = Label_Handler()
@@ -122,8 +129,10 @@ class Annotator:
         self.extra_frame_path = dict_representation["extra_frame_path"]
         self.extra_frame = dict_representation["extra_frame"]
         self.extra_frame_masks = dict_representation["extra_frame_masks"]
+        self.alpha = dict_representation.get("alpha", 0.6)
     def compress_to_dict(self):
         dict_representation = {
+            "alpha": getattr(self, "alpha", 0.6),
             "session_name": self.session_name,
             "view_mode": self.view_mode,
             "mode": self.mode,
@@ -186,6 +195,14 @@ class Annotator:
         self.num_blocks = num_blocks
         for i in range(self.num_blocks):
             self.sam_handler.propagation_blocks[i] = {}
+        for label in self.sam_handler.labels:
+            for i in range(self.num_blocks):
+                if i not in label.pts:
+                    label.pts[i] = []
+                if i not in label.boxes:
+                    label.boxes[i] = []
+                if i not in label.prop_frames:
+                    label.prop_frames[i] = set()
     def set_current_block(self,block):
         if block < 0:
             block = 0
@@ -242,7 +259,7 @@ class Annotator:
         return new_label.col
     def add_feature_to_current_label(self,feature_name):
         current_label = self.sam_handler.labels[self.curr_label_idx]
-        current_label.features.append([(feature_name, self.curr_img_idx + self.current_block * self.block_size)])
+        current_label.features.append([(feature_name, 0)])
     def delete_feature_from_current_label(self,feature_idx):
         current_label = self.sam_handler.labels[self.curr_label_idx]
         current_label.features.pop(feature_idx)
@@ -849,7 +866,7 @@ class Annotator:
         hex_color = hex_color.lstrip('#')
         return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
     def create_overlay_img(self,path = None,overwrite = False):
-        alpha = 0.5
+        alpha = getattr(self, "alpha", 0.6)
         if path is None:
             file_path = self.media_files[self.curr_img_idx]
         else:
@@ -858,7 +875,12 @@ class Annotator:
             return self.overlay_imgs[file_path]
         img_rgb = cv2.cvtColor(cv2.imread(file_path), cv2.COLOR_BGR2RGB)
         self.curr_img_shape = img_rgb.shape
-        blended = cv2.addWeighted(img_rgb, 1, self.create_combined_mask(path,overwrite=overwrite), alpha, 0)
+        combined_mask = self.create_combined_mask(path, overwrite=overwrite)
+        has_mask = np.any(combined_mask > 0, axis=-1)
+        blended = img_rgb.copy()
+        if np.any(has_mask):
+            overlay_blend = cv2.addWeighted(img_rgb, 1.0 - alpha, combined_mask, alpha, 0)
+            blended[has_mask] = overlay_blend[has_mask]
         return blended
     def create_combined_mask(self,path = None, overwrite = False):
         if path is None:
@@ -866,15 +888,16 @@ class Annotator:
         if self.cache_images and (path in self.combined_masks) and (not overwrite):
             return self.combined_masks[path]
         mask_overlay = np.zeros(self.curr_img_shape,dtype=np.uint8)
-        for label_name, mask in self.masks[path].items():
-            label_color = None
-            for label in self.sam_handler.labels:
-                if label.name == label_name:
-                    label_color = self.hex_to_rgb(label.col)
-                    break
-            if label_color is None:
-                label_color = (255, 255, 255)
-            mask_overlay[self.masks[path][label_name]] = label_color
+        if hasattr(self, 'masks') and path in self.masks:
+            for label_name, mask in self.masks[path].items():
+                label_color = None
+                for label in self.sam_handler.labels:
+                    if label.name == label_name:
+                        label_color = self.hex_to_rgb(label.col)
+                        break
+                if label_color is None:
+                    label_color = (255, 255, 255)
+                mask_overlay[self.masks[path][label_name]] = label_color
         return mask_overlay
     def get_img_to_resize(self):
         if self.view_mode == "overlay":
