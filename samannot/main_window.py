@@ -28,7 +28,7 @@ class MainWindow:
         self.root.geometry(f"{self.window_width}x{self.window_height}+1+1")
         self.root.update_idletasks()
         self.root.minsize(800, 540)
-        self.control_width = 320
+        self.control_width = 380
         self.unsaved_changes = False
         self.current_img_width = 0
         self.current_img_height = 0
@@ -137,7 +137,7 @@ class MainWindow:
                     self.full_screen = True
                 else:
                     self.control_panel.grid()
-                    self.root.grid_columnconfigure(0,weight=0)
+                    self.root.grid_columnconfigure(0, weight=0, minsize=self.control_width)
                     self.full_screen = False
                 self.update_canvas()
         if (not (e.state & SHIFT_MASK)) and (not (e.state & CTRL_MASK)):
@@ -157,7 +157,7 @@ class MainWindow:
     
     def create_gui(self):
         self.root.grid_rowconfigure(0, weight=1)
-        self.root.grid_columnconfigure(0, weight=0)
+        self.root.grid_columnconfigure(0, weight=0, minsize=self.control_width)
         self.root.grid_columnconfigure(1, weight=1)
         style = ttk.Style(self.root)
         style.configure("Black.TFrame", background="black")
@@ -184,7 +184,7 @@ class MainWindow:
         self.panel_scrollbar = ttk.Scrollbar(panel_container, orient=tk.VERTICAL)
         self.panel_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        self.panel_canvas = tk.Canvas(panel_container, bg=self.root.cget("bg"), highlightthickness=0, bd=0)
+        self.panel_canvas = tk.Canvas(panel_container, bg=self.root.cget("bg"), highlightthickness=0, bd=0, yscrollincrement=10)
         self.panel_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.panel_canvas.configure(yscrollcommand=self.panel_scrollbar.set)
         self.panel_scrollbar.configure(command=self.panel_canvas.yview)
@@ -194,6 +194,7 @@ class MainWindow:
 
         def _on_canvas_configure(event):
             self.panel_canvas.itemconfig(self.canvas_window_id, width=event.width)
+            self.panel_canvas.configure(scrollregion=self.panel_canvas.bbox("all"))
 
         def _on_frame_configure(event):
             self.panel_canvas.configure(scrollregion=self.panel_canvas.bbox("all"))
@@ -205,11 +206,12 @@ class MainWindow:
             bbox = self.panel_canvas.bbox("all")
             if bbox and (bbox[3] - bbox[1]) > self.panel_canvas.winfo_height():
                 if getattr(event, "num", None) == 4:
-                    self.panel_canvas.yview_scroll(-1, "units")
+                    self.panel_canvas.yview_scroll(-3, "units")
                 elif getattr(event, "num", None) == 5:
-                    self.panel_canvas.yview_scroll(1, "units")
+                    self.panel_canvas.yview_scroll(3, "units")
                 elif getattr(event, "delta", None):
-                    self.panel_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+                    steps = int(-1 * (event.delta / 120))
+                    self.panel_canvas.yview_scroll(steps * 3, "units")
 
         self.panel_canvas.bind("<MouseWheel>", _on_panel_mousewheel)
         self.panel_canvas.bind("<Button-4>", _on_panel_mousewheel)
@@ -277,8 +279,8 @@ class MainWindow:
         # Media handling
         media_frame = ttk.LabelFrame(self.scrollable_control_panel, text="Media")
         media_frame.pack(fill=tk.X, padx=5, pady=5)
-        self.load_media_btn = ttk.Button(media_frame, text="Load Media", command=self.load_main_folder_unified, width=36)
-        self.load_media_btn.pack(fill=tk.X)
+        self.load_media_btn = ttk.Button(media_frame, text="Load Media", command=self.load_main_folder_unified)
+        self.load_media_btn.pack(fill=tk.X, padx=2, pady=2)
         # Labels
         labels_frame = ttk.LabelFrame(self.scrollable_control_panel, text="Labels")
         labels_frame.pack(fill=tk.X, padx=5, pady=5)
@@ -577,10 +579,17 @@ class MainWindow:
     # LOAD MEDIA
     
     def load_main_folder_unified(self):
-        self.loading_media = True
-        self.backend.reset()
-        self.root.wm_title(self.backend.get_session_name())
-        self.file_path = filedialog.askopenfilename(
+        if self.has_unsaved_annotations():
+            answer = messagebox.askyesno(
+                "Unsaved Annotations",
+                "You have unsaved annotations. Loading new media will discard unsaved changes. Are you sure you want to proceed?",
+                icon="warning",
+                parent=self.root
+            )
+            if not answer:
+                return
+
+        chosen_path = filedialog.askopenfilename(
             title="Select media",
             filetypes=[
                 ("Media files", "*.jpg *.JPG *.jpeg *.JPEG *.png *.mp4 *.avi *.mov *.mkv"),
@@ -589,9 +598,14 @@ class MainWindow:
             ],
             initialdir="data"
         )
-        if len(self.file_path) == 0:
-            self.status_label.config(text=f"Media selection cancelled!")
+        if not chosen_path or len(chosen_path) == 0:
+            self.update_status("Media selection cancelled!")
             return
+
+        self.reset_session()
+        self.file_path = chosen_path
+        self.loading_media = True
+        self.root.wm_title(self.backend.get_session_name())
         progress_dialog = tk.Toplevel(self.root)
         progress_dialog.title("Frames to extract")
         progress_dialog.geometry("400x100")
@@ -609,9 +623,11 @@ class MainWindow:
         self.loading_target_label.pack(fill=tk.X)
         extension = self.file_path.split(".")[-1]
         if extension in self.image_file_types:
-            slider = ttk.Scale(progress_dialog, from_=1, to=np.amin([self.backend.get_frame_count_dir(os.path.dirname(self.file_path)),750]), orient=tk.HORIZONTAL,variable=self.slider_var,command=self.update_loading_target)
+            total_frames = self.backend.get_frame_count_dir(os.path.dirname(self.file_path))
         else:
-            slider = ttk.Scale(progress_dialog, from_=1, to=np.amin([self.backend.get_frame_count(self.file_path),750]), orient=tk.HORIZONTAL,variable=self.slider_var,command=self.update_loading_target)
+            total_frames = self.backend.get_frame_count(self.file_path)
+        slider_max = np.amin([total_frames, 750]) if total_frames > 0 else 1
+        slider = ttk.Scale(progress_dialog, from_=1, to=slider_max, orient=tk.HORIZONTAL, variable=self.slider_var, command=self.update_loading_target)
         slider.pack(fill=tk.X)
         
         self.block_size = 0
@@ -649,6 +665,7 @@ class MainWindow:
         self.navigation_slider.config(from_=1,to=self.backend.get_loaded_frame_count())
         self.update_label_list()
         self.loading_media = False
+        self.unsaved_changes = False
         if self.backend.get_current_block() <= 0:
             self.prev_block_btn.config(state=tk.DISABLED)
         else:
@@ -1379,8 +1396,6 @@ class MainWindow:
             self.root.after(0, lambda: self.update_status("Failed to load SAM2 model"))
     def update_loading(self, message, is_final=False):
         if threading.current_thread() is threading.main_thread():
-            if not self.status_frame.winfo_ismapped():
-                self.status_frame.pack(fill=tk.X, side=tk.BOTTOM, before=self.status_frame, pady=(0, 5))
             self.status_label.config(text=message)
             if "[" in message and "]" in message and "Loading SAM2 model" in message:
                 progress_text = message.split("[")[1].split("]")[0]
@@ -1388,7 +1403,7 @@ class MainWindow:
                 progress = (current / total) * 100
                 self.progress_var.set(progress)
             if is_final:
-                self.root.after(500, self.status_frame.pack_forget())
+                self.progress_var.set(0)
             self.root.update_idletasks()
         else:
             self.root.after(0, lambda: self.update_loading(message, is_final))
@@ -1691,17 +1706,27 @@ class MainWindow:
         self.unsaved_changes = False
         self.pt_type = 1
         self.currently_selected_feature = -1
+        self.first_point = None
+        self.placing_prompt = False
         self.label_markers = []
         self.box_label_markers = []
         self.max_frame = 0
+        self.file_path = ""
         self.update_pts_list()
         self.update_box_list()
         self.update_features_list()
         self.update_label_list()
         self.new_label_entry.delete(0, tk.END)
+        self.new_feature_entry.delete(0, tk.END)
         self.enable_label_controls()
         self.disable_tracking_controls()
         self.add_remove_block_button.config(state=tk.DISABLED)
+        self.prev_btn.config(state=tk.DISABLED)
+        self.next_btn.config(state=tk.DISABLED)
+        self.prev_block_btn.config(state=tk.DISABLED)
+        self.next_block_btn.config(state=tk.DISABLED)
+        self.navigation_slider.config(from_=0, to=0)
+        self.navigation_slider_var.set(0)
         self.timelines = []
         self.timeline = np.zeros((12,100,3), dtype=np.uint8)
         self.update_timeline_canvas()
